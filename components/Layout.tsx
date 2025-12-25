@@ -14,10 +14,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { path: '/profile', label: '个人中心', icon: 'fa-user' },
   ];
 
-  const handleLogout = () => {
-    if (confirm('确认要退出并清除所有本地数据吗？此操作不可撤销。')) {
-      localStorage.clear();
-      window.location.hash = '#/welcome';
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (window.confirm('确认要退出并清除所有本地数据吗？此操作不可撤销。')) {
+      storageService.clearAllData();
+      // 强制重置到欢迎页并重载浏览器状态
+      window.location.replace('#/welcome');
       window.location.reload();
     }
   };
@@ -57,7 +59,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
         <div className="p-6 space-y-4 border-t border-slate-800/50">
           <Link to="/profile" className="flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-800/50 transition-colors">
-            <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xl shadow-inner">
+            <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xl shadow-inner overflow-hidden">
               {data.currentUser?.avatar || '👤'}
             </div>
             <div className="flex-1 min-w-0">
@@ -67,6 +69,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </Link>
 
           <button 
+            type="button"
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-500 hover:text-red-400 hover:bg-red-500/5 transition-all group"
           >

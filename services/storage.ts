@@ -20,6 +20,12 @@ export const storageService = {
     return data ? JSON.parse(data) : DEFAULT_STATE;
   },
 
+  clearAllData: () => {
+    localStorage.removeItem(STORAGE_KEY);
+    // 同时清除可能存在的其他残余数据
+    localStorage.clear();
+  },
+
   addProfile: (profile: UserProfile) => {
     const state = storageService.loadData();
     const newProfiles = [...state.profiles, profile];
@@ -74,7 +80,6 @@ export const storageService = {
     return newState;
   },
 
-  // 对话持久化
   saveConversation: (profileId: string, messages: ChatMessage[]) => {
     const state = storageService.loadData();
     const convId = `conv_${profileId}`;
