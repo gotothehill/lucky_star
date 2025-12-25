@@ -1,0 +1,7 @@
+{
+  "name": "幸运星 (Lucky Star)",
+  "description": "基于专业星历数据的星座运势应用，提供个性化运势、星盘解读与AI占星咨询服务。",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
