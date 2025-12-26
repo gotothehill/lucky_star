@@ -4,13 +4,119 @@ import { storageService } from '../services/storage';
 import { askGeminiStream } from '../services/gemini';
 import { ChatMessage, UserProfile } from '../types';
 
-const SUGGESTIONS = [
-  "我最近的感情运势如何？",
-  "我适合什么样的职业发展方向？",
-  "本月财运如何，有投资机会吗？",
-  "如何提升我的个人魅力？",
-  "我需要注意哪些健康问题？"
+const BASE_SUGGESTIONS = [
+  '我最近的感情走向如何？需要注意哪些相处雷区？',
+  '工作/事业上有什么机会或转型窗口？',
+  '本月财运怎样？投资理财要规避什么风险？',
+  '如何提升个人魅力和人际关系？',
+  '健康方面近期需要特别注意什么？',
+  '适合我的学习/考证节奏和领域有哪些？',
+  '如何利用本命盘优势规划下半年？',
+  '与伴侣的相处加分项和避雷点是什么？',
+  '有没有适合的旅行/迁移时机？',
+  '近期整体运势的重点和盲点各是什么？'
 ];
+
+const TOPIC_SUGGESTIONS: { keywords: string[]; questions: string[] }[] = [
+  {
+    keywords: ['感情', '恋爱', '婚', '桃花', '关系', '伴侣', '暧昧'],
+    questions: [
+      '我们的关系下一阶段的关键点是什么？',
+      '沟通上需要调整的地方有哪些？',
+      '什么时候是推进关系/求婚/表白的窗口期？',
+      '我应该如何化解近期的情感矛盾？'
+    ]
+  },
+  {
+    keywords: ['事业', '工作', '职', '晋升', 'offer', '面试', '跳槽'],
+    questions: [
+      '我适合在现阶段做岗位/行业转型吗？',
+      '近期的职场贵人和机会点在哪里？',
+      '面对工作压力有什么行之有效的调整方案？',
+      '怎样规划下一个里程碑（升职/加薪）？'
+    ]
+  },
+  {
+    keywords: ['财', '投资', '理财', '收入', '钱', '副业'],
+    questions: [
+      '现在适合进取型投资还是稳健型？',
+      '本月的破财风险点在哪，需要避开什么？',
+      '如何分配主业与副业的精力比例？',
+      '我适合什么样的理财节奏？'
+    ]
+  },
+  {
+    keywords: ['健康', '睡眠', '饮食', '运动', '作息', '身体'],
+    questions: [
+      '近期健康需要重点关注的部位或习惯是什么？',
+      '怎样调整作息和饮食更有利于恢复能量？',
+      '本周适合的运动/放松方式有哪些？',
+      '哪些压力源最需要先释放？'
+    ]
+  },
+  {
+    keywords: ['家', '家庭', '父母', '孩子', '婚姻'],
+    questions: [
+      '家庭沟通如何更顺畅、减少摩擦？',
+      '亲密关系里如何保持边界感？',
+      '近期家庭决策（买房/搬家）有什么参考建议？',
+      '如何兼顾自我成长与家庭责任？'
+    ]
+  },
+  {
+    keywords: ['学', '考试', '考证', '学习', '研究', '出国'],
+    questions: [
+      '现在适合加速学习还是巩固基础？',
+      '近期备考/学习的最佳节奏是什么？',
+      '是否适合申请出国/进修的时机？',
+      '如何找到能量匹配的学习方法？'
+    ]
+  },
+  {
+    keywords: ['旅行', '搬家', '迁移', '留学', '签证'],
+    questions: [
+      '近期是否有适合出行或搬迁的时间窗？',
+      '去哪些方向更有启发与安全感？',
+      '如何降低旅行/迁移决策的风险？',
+      '需要提前做好哪些准备？'
+    ]
+  },
+  {
+    keywords: [],
+    questions: [
+      '我本命盘的优势如何更好被利用？',
+      '本周需要注意的运势盲区是什么？',
+      '有哪些适合当下的小目标可以先落地？',
+      '如何保持情绪稳态，避免过度内耗？'
+    ]
+  }
+];
+
+const pickSuggestions = (context: string, rotateSeed?: number) => {
+  const text = (context || '').toLowerCase();
+  const ordered: string[] = [];
+
+  const matchedTopics = TOPIC_SUGGESTIONS.filter(topic =>
+    topic.keywords.some(k => text.includes(k.toLowerCase()))
+  );
+
+  if (matchedTopics.length > 0) {
+    // 1) 首选最相关主题的高优问题
+    ordered.push(...matchedTopics[0].questions.slice(0, 3));
+    // 2) 其他可能相关的主题各取 1-2 个补充问题
+    matchedTopics.slice(1).forEach(t => ordered.push(...t.questions.slice(0, 2)));
+  }
+
+  // 3) 兜底基础问题池
+  ordered.push(...BASE_SUGGESTIONS);
+
+  const unique = Array.from(new Set(ordered));
+  if (unique.length === 0) return [];
+
+  const offset = rotateSeed === undefined ? Math.floor(Math.random() * unique.length) : rotateSeed % unique.length;
+  const rotated = unique.slice(offset).concat(unique.slice(0, offset));
+  return rotated.slice(0, 5);
+};
 
 const AIConsult: React.FC = () => {
   const data = storageService.loadData();
@@ -18,6 +124,7 @@ const AIConsult: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>(() => pickSuggestions('', Date.now()));
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -25,6 +132,9 @@ const AIConsult: React.FC = () => {
       const conv = storageService.getConversation(selectedProfile.id);
       if (conv && conv.messages.length > 0) {
         setMessages(conv.messages);
+        const last = conv.messages[conv.messages.length - 1];
+        const lastUser = [...conv.messages].reverse().find(m => m.role === 'user');
+        setSuggestions(pickSuggestions(lastUser?.content || last?.content || selectedProfile.sunSign || '', Date.now()));
       } else {
         const welcome: ChatMessage = {
           id: 'welcome',
@@ -33,6 +143,7 @@ const AIConsult: React.FC = () => {
           timestamp: Date.now()
         };
         setMessages([welcome]);
+        setSuggestions(pickSuggestions(selectedProfile.sunSign || '', Date.now()));
       }
     }
   }, [selectedProfile?.id]);
@@ -63,6 +174,7 @@ const AIConsult: React.FC = () => {
 
     const currentHistory = messages;
     setMessages([...messages, userMsg, aiPlaceholder]);
+    setSuggestions(pickSuggestions(text, Date.now()));
     setInput('');
     setLoading(true);
 
@@ -77,8 +189,10 @@ const AIConsult: React.FC = () => {
       
       const finalMessages = [...currentHistory, userMsg, { ...aiPlaceholder, content: fullContent }];
       storageService.saveConversation(selectedProfile.id, finalMessages);
+      setSuggestions(pickSuggestions(`${text} ${fullContent}`, Date.now()));
     } catch(e) {
       console.error(e);
+      setSuggestions(pickSuggestions(text, Date.now()));
     } finally {
       setLoading(false);
     }
@@ -90,7 +204,7 @@ const AIConsult: React.FC = () => {
       .replace(/\n\n/g, '<div class="h-4"></div>')
       .replace(/\n/g, '<br/>')
       .replace(/### (.*?)(<br\/>|$)/g, '<h3 class="text-amber-100 font-bold mt-8 mb-3 text-xl border-l-4 border-amber-500 pl-4">$1</h3>')
-      .replace(/- (.*?)(<br\/>|$)/g, '<div class="flex gap-2 items-start ml-2 mb-2"><span class="text-amber-500">•</span><span class="text-slate-300">$1</span></div>');
+      .replace(/- (.*?)(<br\/>|$)/g, '<div class="flex gap-2 items-start ml-2 mb-2"><span class="text-amber-500">&bull;</span><span class="text-slate-300">$1</span></div>');
 
     return <div className="text-lg leading-relaxed font-light" dangerouslySetInnerHTML={{ __html: processed }} />;
   };
@@ -162,8 +276,16 @@ const AIConsult: React.FC = () => {
           {/* Follow-up Suggestions after AI response */}
           {!loading && messages.length > 0 && messages[messages.length-1].role === 'model' && (
              <div className="flex flex-wrap gap-3 justify-start pl-14 animate-fade-in delay-500">
-                <p className="w-full text-[10px] text-slate-600 uppercase tracking-widest mb-1 ml-1">或许你还想问：</p>
-                {SUGGESTIONS.slice(0, 3).map(s => (
+                <div className="w-full flex items-center gap-2 mb-1 ml-1">
+                  <p className="text-[10px] text-slate-600 uppercase tracking-widest">或许你还想问：</p>
+                  <button
+                    onClick={() => setSuggestions(pickSuggestions(messages[messages.length-1]?.content || selectedProfile?.sunSign || '', Date.now()))}
+                    className="text-[10px] text-amber-300 hover:text-amber-100 transition-colors underline-offset-4"
+                  >
+                    换一批
+                  </button>
+                </div>
+                {suggestions.map(s => (
                     <button 
                         key={s} 
                         onClick={() => handleSend(s)}
