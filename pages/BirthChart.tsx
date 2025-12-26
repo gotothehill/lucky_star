@@ -4,9 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import ChartWheel from '../components/ChartWheel';
 import { storageService } from '../services/storage';
 import { PLANETS, ZODIAC_SIGNS } from '../constants';
-
-// 声明全局 html2pdf 变量
-declare var html2pdf: any;
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const BirthChart: React.FC = () => {
   const navigate = useNavigate();
@@ -16,6 +15,7 @@ const BirthChart: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+  const [showReport, setShowReport] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
   
   const chartExportFn = useRef<() => void>(null);
@@ -42,39 +42,50 @@ const BirthChart: React.FC = () => {
     if (isExporting) return;
 
     setIsExporting(true);
-    setNotification("✨ 正在聚合星历数据，构建三页专业 PDF 视觉报告...");
-    
-    // 增加延迟，确保 off-screen 元素完全渲染
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    const element = reportRef.current;
-    if (!element) return;
+    setNotification("Generating 3-page PDF report...");
+    setShowReport(true);
 
-    const opt = {
-      margin: 0,
-      filename: `幸运星_${user.nickname}_专业星盘报告.pdf`,
-      image: { type: 'jpeg', quality: 1.0 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true, 
-        backgroundColor: '#020617',
-        letterRendering: true,
-        logging: false,
-        width: 794, // 固定 A4 宽度 (96dpi)
-        windowWidth: 800 // 模拟窗口宽度
-      },
-      jsPDF: { unit: 'px', format: [794, 1123], hotfixes: ['px_scaling'] },
-      pagebreak: { mode: 'legacy', before: '.page-break' }
-    };
+    // Wait for hidden content to finish rendering
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    const element = reportRef.current;
+    if (!element) {
+      setIsExporting(false);
+      setShowReport(false);
+      setNotification("Report content not found, export failed");
+      setTimeout(() => setNotification(null), 2500);
+      return;
+    }
 
     try {
-      await html2pdf().set(opt).from(element).save();
-      setIsExporting(false);
-      setNotification("✅ 专业版三页 PDF 报告已成功导出。");
-      setTimeout(() => setNotification(null), 4000);
+      const pages = Array.from(element.querySelectorAll('.pdf-page')) as HTMLElement[];
+      if (pages.length === 0) {
+        throw new Error('No pdf-page elements found');
+      }
+
+      const pdf = new jsPDF({ unit: 'px', format: [794, 1123] });
+
+      for (let i = 0; i < pages.length; i++) {
+        const pageEl = pages[i];
+        pageEl.style.backgroundColor = '#ffffff';
+        const canvas = await html2canvas(pageEl, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff'
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        if (i > 0) pdf.addPage([794, 1123]);
+        pdf.addImage(imgData, 'JPEG', 0, 0, 794, 1123);
+      }
+
+      pdf.save(`luckystar_${user.nickname}_report.pdf`);
+      setNotification("PDF exported successfully");
     } catch (err) {
       console.error(err);
+      setNotification("Export failed, please retry");
+    } finally {
       setIsExporting(false);
-      setNotification("❌ 导出失败，请重试。");
+      setShowReport(false);
+      setTimeout(() => setNotification(null), 4000);
     }
   };
 
@@ -82,7 +93,7 @@ const BirthChart: React.FC = () => {
     if (e) e.stopPropagation();
     if (chartExportFn.current) {
       chartExportFn.current();
-      setNotification("✨ 高清星盘图片已开始下载。");
+      setNotification("High-res chart image download started.");
       setTimeout(() => setNotification(null), 3000);
     }
   };
@@ -266,23 +277,31 @@ const BirthChart: React.FC = () => {
 
       {/* PDF 导出专用重构模版 (固定 794px 宽度，离屏渲染) */}
       <div 
-        ref={reportRef} 
-        style={{ 
-          position: 'fixed', 
-          left: '-9999px', 
-          top: 0, 
-          width: '794px', 
-          backgroundColor: '#020617', 
-          color: 'white',
-          fontFamily: 'sans-serif' 
-        }}
-      >
+      ref={reportRef} 
+      style={{ 
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          display: showReport ? 'block' : 'none',
+          pointerEvents: 'none',
+          zIndex: 9999,
+          width: '794px',
+          minHeight: '3400px', // 3 pages total height
+          backgroundColor: '#ffffff',
+          color: '#0f172a',
+          fontFamily: 'sans-serif',
+          padding: '20px'
+      }}
+    >
+        <div style={{ textAlign: 'center', color: '#f59e0b', marginBottom: '20px', fontWeight: 'bold', letterSpacing: '4px' }}>
+          LUCKY STAR · PDF PREVIEW
+        </div>
         {/* 第一页：高清星盘封面 */}
-        <section style={{ height: '1123px', padding: '60px', boxSizing: 'border-box', position: 'relative' }}>
+        <section className="pdf-page" style={{ height: '1123px', padding: '60px', boxSizing: 'border-box', position: 'relative' }}>
           <div style={{ borderBottom: '2px solid rgba(245,158,11,0.3)', paddingBottom: '30px', marginBottom: '60px' }}>
-             <h1 style={{ fontSize: '64px', fontWeight: 'bold', color: '#fbbf24', margin: '0 0 10px 0' }}>{user.nickname}</h1>
+             <h1 style={{ fontSize: '64px', fontWeight: 'bold', color: '#f59e0b', margin: '0 0 10px 0' }}>{user.nickname}</h1>
              <h2 style={{ fontSize: '20px', letterSpacing: '8px', color: '#94a3b8', margin: '0 0 20px 0', textTransform: 'uppercase' }}>本命星盘专业报告</h2>
-             <div style={{ fontSize: '14px', color: '#64748b' }}>
+             <div style={{ fontSize: '16px', color: '#475569' }}>
                 <span style={{ marginRight: '30px' }}>📅 {user.birthInfo.birthDate} {user.birthInfo.birthTime}</span>
                 <span>📍 {user.birthInfo.birthLocation}</span>
              </div>
@@ -295,7 +314,7 @@ const BirthChart: React.FC = () => {
           </div>
 
           <div style={{ position: 'absolute', bottom: '60px', width: '100%', left: 0, textAlign: 'center' }}>
-             <p style={{ fontSize: '10px', color: '#334155', letterSpacing: '4px', textTransform: 'uppercase' }}>LUCKY STAR STELLAR LAB • PAGE 01 / STAR MAP</p>
+             <p style={{ fontSize: '12px', color: '#334155', letterSpacing: '4px', textTransform: 'uppercase' }}>LUCKY STAR STELLAR LAB • PAGE 01 / STAR MAP</p>
           </div>
         </section>
 
@@ -303,18 +322,18 @@ const BirthChart: React.FC = () => {
         <div className="page-break" style={{ height: '0px', pageBreakAfter: 'always' }}></div>
 
         {/* 第二页：核心能量深度解析 */}
-        <section style={{ height: '1123px', padding: '60px', boxSizing: 'border-box' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 'black', color: '#fbbf24', borderLeft: '6px solid #fbbf24', paddingLeft: '20px', marginBottom: '40px', textTransform: 'uppercase', letterSpacing: '3px' }}>第二页：核心能量与性格解析</h3>
+        <section className="pdf-page" style={{ height: '1123px', padding: '60px', boxSizing: 'border-box', backgroundColor: '#ffffff' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 'black', color: '#f59e0b', borderLeft: '6px solid #fbbf24', paddingLeft: '20px', marginBottom: '40px', textTransform: 'uppercase', letterSpacing: '3px' }}>第二页：核心能量与性格解析</h3>
           
           <div style={{ marginBottom: '60px' }}>
             {[
-              { label: '太阳人格 (Sun)', val: user.sunSign, color: '#fbbf24' },
+              { label: '太阳人格 (Sun)', val: user.sunSign, color: '#f59e0b' },
               { label: '月亮情感 (Moon)', val: user.moonSign, color: '#818cf8' },
               { label: '上升面具 (ASC)', val: user.ascendantSign, color: '#34d399' }
             ].map(s => (
-              <div key={s.label} style={{ background: 'rgba(15,23,42,0.6)', padding: '30px', borderRadius: '30px', border: '1px solid #1e293b', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div key={s.label} style={{ background: '#0f172a', padding: '30px', borderRadius: '24px', border: '1px solid #e2e8f0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                  <div>
-                    <p style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 5px 0' }}>{s.label}</p>
+                    <p style={{ fontSize: '12px', color: '#475569', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 5px 0' }}>{s.label}</p>
                  </div>
                  <p style={{ fontSize: '40px', fontWeight: 'bold', color: s.color, margin: 0 }}>{s.val}</p>
               </div>
@@ -327,8 +346,8 @@ const BirthChart: React.FC = () => {
               { title: '内在情感交互需求', content: '月亮在'+user.moonSign+'代表了您对精神深度的渴求。在亲密关系中，唯有深度的灵魂共鸣才能填补您的情感内核。您需要学会通过正念冥想来平衡月亮带来的周期性情绪波动。' },
               { title: '事业拓展与建议', content: '星盘显示您具备极佳的商业直觉，二宫与十宫的和谐互动预示着事业将在积累后迎来爆发。学会在理性与感性之间建立桥梁，将是您通往成功的关键密钥。' }
             ].map(i => (
-              <div key={i.title} style={{ padding: '30px', border: '1px solid #1e293b', borderRadius: '40px', background: 'rgba(15,23,42,0.3)', marginBottom: '25px' }}>
-                <h4 style={{ fontSize: '18px', fontWeight: 'bold', color: 'white', marginBottom: '15px' }}>{i.title}</h4>
+              <div key={i.title} style={{ padding: '30px', border: '1px solid #e2e8f0', borderRadius: '40px', background: '#0f172a', marginBottom: '25px' }}>
+                <h4 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0f172a', marginBottom: '15px' }}>{i.title}</h4>
                 <p style={{ fontSize: '14px', color: '#94a3b8', lineHeight: '1.8' }}>{i.content}</p>
               </div>
             ))}
@@ -338,41 +357,41 @@ const BirthChart: React.FC = () => {
         <div className="page-break" style={{ height: '0px', pageBreakAfter: 'always' }}></div>
 
         {/* 第三页：详细星历数据表 */}
-        <section style={{ height: '1123px', padding: '60px', boxSizing: 'border-box' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 'black', color: '#fbbf24', borderLeft: '6px solid #fbbf24', paddingLeft: '20px', marginBottom: '40px', textTransform: 'uppercase', letterSpacing: '3px' }}>第三页：精准星体落位数据汇编</h3>
+        <section className="pdf-page" style={{ height: '1123px', padding: '60px', boxSizing: 'border-box', backgroundColor: '#ffffff' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#f59e0b', borderLeft: '6px solid #f59e0b', paddingLeft: '20px', marginBottom: '40px', textTransform: 'uppercase', letterSpacing: '3px' }}>第三页：精准星体落位数据汇编</h3>
           
-          <div style={{ backgroundColor: 'rgba(15,23,42,0.3)', padding: '40px', borderRadius: '50px', border: '1px solid #1e293b' }}>
+          <div style={{ backgroundColor: '#f8fafc', padding: '40px', borderRadius: '30px', border: '1px solid #e2e8f0' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid #334155' }}>
-                  <th style={{ padding: '15px 10px', fontSize: '10px', color: '#64748b', textTransform: 'uppercase' }}>行星 Planet</th>
-                  <th style={{ padding: '15px 10px', fontSize: '10px', color: '#64748b', textTransform: 'uppercase' }}>落座 Sign</th>
-                  <th style={{ padding: '15px 10px', fontSize: '10px', color: '#64748b', textTransform: 'uppercase' }}>度数 Degree</th>
-                  <th style={{ padding: '15px 10px', fontSize: '10px', color: '#64748b', textTransform: 'uppercase', textAlign: 'center' }}>宫位 House</th>
+                <tr style={{ borderBottom: '2px solid #cbd5e1' }}>
+                  <th style={{ padding: '15px 10px', fontSize: '12px', color: '#475569', textTransform: 'uppercase' }}>行星 Planet</th>
+                  <th style={{ padding: '15px 10px', fontSize: '12px', color: '#475569', textTransform: 'uppercase' }}>落座 Sign</th>
+                  <th style={{ padding: '15px 10px', fontSize: '12px', color: '#475569', textTransform: 'uppercase' }}>度数 Degree</th>
+                  <th style={{ padding: '15px 10px', fontSize: '12px', color: '#475569', textTransform: 'uppercase', textAlign: 'center' }}>宫位 House</th>
                 </tr>
               </thead>
-              <tbody style={{ color: '#cbd5e1', fontSize: '14px' }}>
+              <tbody style={{ color: '#475569', fontSize: '14px' }}>
                 {planetaryData.map((p, idx) => (
                   <tr key={idx} style={{ borderBottom: '1px solid rgba(51,65,85,0.4)' }}>
-                    <td style={{ padding: '20px 10px', fontWeight: 'bold', color: 'white' }}>{p.icon} {p.planet}</td>
+                    <td style={{ padding: '20px 10px', fontWeight: 'bold', color: '#0f172a' }}>{p.icon} {p.planet}</td>
                     <td style={{ padding: '20px 10px' }}>{p.sign}</td>
-                    <td style={{ padding: '20px 10px', fontSize: '11px', fontFamily: 'monospace' }}>{p.degree}</td>
-                    <td style={{ padding: '20px 10px', textAlign: 'center', fontWeight: 'bold', color: '#fbbf24' }}>{p.house}</td>
+                    <td style={{ padding: '20px 10px', fontSize: '12px', fontFamily: 'monospace' }}>{p.degree}</td>
+                    <td style={{ padding: '20px 10px', textAlign: 'center', fontWeight: 'bold', color: '#f59e0b' }}>{p.house}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             
-            <div style={{ marginTop: '50px', padding: '30px', backgroundColor: '#020617', borderRadius: '30px', border: '1px solid #1e293b' }}>
-               <h5 style={{ color: '#fbbf24', fontSize: '14px', margin: '0 0 10px 0' }}>占星师结语</h5>
-               <p style={{ fontSize: '11px', color: '#475569', lineHeight: '1.6' }}>
+            <div style={{ marginTop: '40px', padding: '30px', backgroundColor: '#f1f5f9', borderRadius: '30px', border: '1px solid #e2e8f0' }}>
+               <h5 style={{ color: '#f59e0b', fontSize: '14px', margin: '0 0 10px 0' }}>占星师结语</h5>
+               <p style={{ fontSize: '12px', color: '#475569', lineHeight: '1.6' }}>
                  此报告数据基于瑞士星历库（Swiss Ephemeris）精密计算。星盘揭示的是潜在的能量场，而非绝对的宿命。通过对行星相位的深度觉察，您可以更好地驾驭生命中的波动，开启属于自己的高能人生。
                </p>
             </div>
           </div>
 
           <footer style={{ marginTop: '80px', textAlign: 'center' }}>
-            <p style={{ fontSize: '9px', color: '#1e293b', letterSpacing: '4px', textTransform: 'uppercase' }}>Lucky Star Professional Astrology • 报告完结</p>
+            <p style={{ fontSize: '10px', color: '#94a3b8', letterSpacing: '4px', textTransform: 'uppercase' }}>Lucky Star Professional Astrology • 报告完结</p>
           </footer>
         </section>
       </div>

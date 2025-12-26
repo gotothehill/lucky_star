@@ -10,17 +10,17 @@ type MatchType = '恋爱' | '婚姻' | '友情' | '合作';
 // 专用的 Markdown 渲染组件，支持加粗、标题、列表和换行
 const MarkdownRenderer: React.FC<{ content: string }> = ({ content }) => {
   const processed = content
-    .replace(/\n\n/g, '<div class="h-4"></div>') // 双换行转间距
+    .replace(/\n\n/g, '</p><p>') // 双换行转段落
     .replace(/\n/g, '<br/>') // 单换行
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-amber-400">$1</strong>') // 加粗
-    .replace(/### (.*?)(<br\/>|$)/g, '<h3 class="text-lg font-bold text-indigo-200 mt-6 mb-2 flex items-center gap-2">$1</h3>') // 三级标题
-    .replace(/^\* (.*?)(<br\/>|$)/gm, '<div class="flex gap-2 my-2"><span class="text-indigo-400">•</span><span class="text-slate-300">$1</span></div>') // 无序列表
-    .replace(/^(\d+)\. (.*?)(<br\/>|$)/gm, '<div class="flex gap-2 my-2"><span class="text-amber-500 font-bold">$1.</span><span class="text-slate-300">$2</span></div>'); // 有序列表
+    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-amber-300 font-semibold">$1</strong>') // 加粗
+    .replace(/### (.*?)(<br\/>|$)/g, '<h3 class="text-lg font-bold text-amber-200 mt-5 mb-3 flex items-center gap-2"><i class="fas fa-sparkles text-amber-300"></i><span>$1</span></h3>') // 三级标题
+    .replace(/^\* (.*?)(<br\/>|$)/gm, '<div class="flex gap-2 my-2 items-start"><span class="text-amber-300 mt-1">•</span><span class="text-slate-100">$1</span></div>') // 无序列表
+    .replace(/^(\d+)\. (.*?)(<br\/>|$)/gm, '<div class="flex gap-2 my-2 items-start"><span class="text-amber-400 font-bold">$1.</span><span class="text-slate-100">$2</span></div>'); // 有序列表
 
   return (
     <div 
-      className="text-sm leading-relaxed text-slate-300 font-light" 
-      dangerouslySetInnerHTML={{ __html: processed }} 
+      className="text-[15px] leading-7 text-slate-100 font-light space-y-3" 
+      dangerouslySetInnerHTML={{ __html: `<p>${processed}</p>` }} 
     />
   );
 };
