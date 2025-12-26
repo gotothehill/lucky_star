@@ -10,6 +10,7 @@ const Home: React.FC = () => {
   const navigate = useNavigate();
   const [state, setState] = useState(storageService.loadData());
   const [fortune, setFortune] = useState<FortuneData | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
 
   useEffect(() => {
     if (state.currentUser) {
@@ -23,12 +24,17 @@ const Home: React.FC = () => {
     setFortune(getDailyFortune(newState.currentUser?.sunSign || ''));
   };
 
+  const handleRemindFriend = (e: React.MouseEvent, name: string) => {
+    e.stopPropagation();
+    setNotification(`✨ 已将今日运势提醒发送给 ${name}`);
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   if (!state.currentUser) return null;
 
   const currentSign = ZODIAC_SIGNS.find(s => s.name === state.currentUser?.sunSign);
   const otherProfiles = state.profiles.filter(p => p.id !== state.currentUser?.id);
 
-  // 幸运色背景映射
   const getColorValue = (colorName: string) => {
     const map: Record<string, string> = {
       '紫色': '#9333ea',
@@ -43,7 +49,15 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="space-y-12 animate-fade-in max-w-7xl mx-auto pb-16">
+    <div className="space-y-12 animate-fade-in max-w-[1500px] mx-auto pb-16 relative">
+      {/* Action Notification Toast */}
+      {notification && (
+        <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[100] bg-indigo-600 text-white px-8 py-4 rounded-2xl shadow-2xl border border-indigo-400 animate-slide-down flex items-center gap-3">
+          <i className="fas fa-magic"></i>
+          <span className="text-sm font-bold">{notification}</span>
+        </div>
+      )}
+
       {/* Top Hero Section */}
       <section className="relative overflow-hidden rounded-[3.5rem] bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 border border-slate-800 p-10 md:p-16 shadow-2xl">
         <div className="absolute top-0 right-0 w-1/2 h-full bg-amber-500/5 blur-[150px] rounded-full -translate-y-1/2 translate-x-1/2"></div>
@@ -61,14 +75,19 @@ const Home: React.FC = () => {
                   {state.currentUser.sunSign}
                 </span>
                 {state.isVip && (
-                  <span className="px-5 py-2 bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 border border-amber-300 rounded-full text-xs font-black tracking-widest uppercase flex items-center gap-2 shadow-[0_0_30px_rgba(245,158,11,0.4)]">
-                    <i className="fas fa-crown text-[10px]"></i> VIP GOLD
-                  </span>
+                  <button 
+                    onClick={() => navigate('/profile')}
+                    className="px-5 py-2 bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 border border-amber-300 rounded-full text-xs font-black tracking-widest uppercase flex items-center gap-2 shadow-[0_0_30px_rgba(245,158,11,0.4)] hover:brightness-110 active:scale-95 transition-all group"
+                  >
+                    <i className="fas fa-crown text-[10px]"></i> 
+                    VIP GOLD
+                    <i className="fas fa-chevron-right text-[8px] opacity-70 group-hover:translate-x-0.5 transition-transform"></i>
+                  </button>
                 )}
               </div>
             </div>
             <p className="text-slate-400 max-w-2xl text-xl leading-relaxed font-light italic opacity-80">
-              "星轨正在为此刻的你重排，{state.currentUser.sunSign}的本源之力已在此聚集。"
+              "星轨正在为此刻的你重排，{state.currentUser.sunSign} 的本源之力已在此聚集。"
             </p>
           </div>
         </div>
@@ -85,13 +104,13 @@ const Home: React.FC = () => {
               <div className="md:col-span-5 bg-slate-900/40 backdrop-blur-md border border-slate-800 p-12 rounded-[3.5rem] flex flex-col items-center justify-center relative overflow-hidden group shadow-2xl">
                 <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
                 <p className="text-slate-500 text-[10px] tracking-[0.5em] uppercase mb-10 font-black">今日综合运势指数</p>
-                <div className="relative">
-                  <svg className="w-52 h-52 transform -rotate-90">
-                    <circle cx="104" cy="104" r="96" fill="transparent" stroke="#1e293b" strokeWidth="12" />
+                <div className="relative p-2">
+                  <svg className="w-56 h-56 transform -rotate-90" viewBox="0 0 220 220">
+                    <circle cx="110" cy="110" r="100" fill="transparent" stroke="#1e293b" strokeWidth="12" />
                     <circle 
-                      cx="104" cy="104" r="96" fill="transparent" stroke="url(#amberGradient)" strokeWidth="12" 
-                      strokeDasharray={603} 
-                      strokeDashoffset={603 - (603 * fortune.summary) / 100}
+                      cx="110" cy="110" r="100" fill="transparent" stroke="url(#amberGradient)" strokeWidth="12" 
+                      strokeDasharray={628.3} 
+                      strokeDashoffset={628.3 - (628.3 * fortune.summary) / 100}
                       strokeLinecap="round"
                       className="transition-all duration-1000 ease-out"
                     />
@@ -108,27 +127,27 @@ const Home: React.FC = () => {
                 </div>
               </div>
 
-              {/* Sub Scores Grid */}
+              {/* Sub Scores Grid - Updated with subtle bg tints */}
               <div className="md:col-span-7 grid grid-cols-2 gap-6">
                 {[
-                  { label: '情感', val: fortune.love, icon: 'fa-heart', color: 'from-pink-500 to-rose-400' },
-                  { label: '事业', val: fortune.career, icon: 'fa-briefcase', color: 'from-blue-500 to-indigo-400' },
-                  { label: '财运', val: fortune.wealth, icon: 'fa-coins', color: 'from-yellow-500 to-amber-400' },
-                  { label: '健康', val: fortune.health, icon: 'fa-heartbeat', color: 'from-emerald-500 to-teal-400' }
+                  { label: '情感', val: fortune.love, icon: 'fa-heart', color: 'from-pink-500 to-rose-400', tint: 'bg-pink-500/5', border: 'hover:border-pink-500/40' },
+                  { label: '事业', val: fortune.career, icon: 'fa-briefcase', color: 'from-blue-500 to-indigo-400', tint: 'bg-blue-500/5', border: 'hover:border-blue-500/40' },
+                  { label: '财运', val: fortune.wealth, icon: 'fa-coins', color: 'from-yellow-500 to-amber-400', tint: 'bg-amber-500/5', border: 'hover:border-amber-500/40' },
+                  { label: '健康', val: fortune.health, icon: 'fa-heartbeat', color: 'from-emerald-500 to-teal-400', tint: 'bg-emerald-500/5', border: 'hover:border-emerald-500/40' }
                 ].map(item => (
-                  <div key={item.label} className="bg-slate-900/40 border border-slate-800 p-8 rounded-[2.5rem] hover:border-amber-500/30 transition-all shadow-xl group">
-                    <div className="flex items-center gap-3 mb-6">
+                  <div key={item.label} className={`${item.tint} border border-slate-800 p-8 rounded-[2.5rem] ${item.border} transition-all shadow-xl group relative overflow-hidden`}>
+                    <div className="flex items-center gap-3 mb-6 relative z-10">
                         <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center text-slate-950 text-[10px] shadow-lg`}>
                         <i className={`fas ${item.icon}`}></i>
                         </div>
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">{item.label}</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.label}</span>
                     </div>
-                    <div className="flex items-end mb-4">
+                    <div className="flex items-end mb-4 relative z-10">
                        <span className="text-5xl font-black text-slate-100 tracking-tighter group-hover:text-amber-200 transition-colors">
                         {item.val}<span className="text-base ml-1 text-slate-600 font-bold">%</span>
                        </span>
                     </div>
-                    <div className="h-1 bg-slate-950 rounded-full overflow-hidden">
+                    <div className="h-1 bg-slate-950/50 rounded-full overflow-hidden relative z-10">
                       <div className={`h-full bg-gradient-to-r ${item.color} transition-all duration-1000`} style={{ width: `${item.val}%` }}></div>
                     </div>
                   </div>
@@ -147,14 +166,16 @@ const Home: React.FC = () => {
             </div>
             
             <div className="space-y-12">
-              <div className="text-slate-300 leading-[2] text-xl font-light">
-                <p className="first-letter:text-7xl first-letter:font-serif first-letter:float-left first-letter:mr-5 first-letter:text-amber-500 first-letter:leading-none">
-                  {fortune?.description}
-                </p>
+              <div className="text-slate-300 leading-relaxed text-xl font-light">
+                {fortune?.description.split('\n\n').map((para, idx) => (
+                  <p key={idx} className={`${idx === 0 ? 'first-letter:text-7xl first-letter:font-serif first-letter:float-left first-letter:mr-5 first-letter:text-amber-500 first-letter:leading-none' : 'mt-6'}`}>
+                    {para}
+                  </p>
+                ))}
               </div>
 
               {/* VIP Private Insight Section */}
-              <div className={`p-10 rounded-[3rem] border-2 relative overflow-hidden transition-all group ${state.isVip ? 'bg-gradient-to-br from-amber-500/5 via-slate-900/50 to-transparent border-amber-500/20' : 'bg-slate-950/40 border-slate-800/50'}`}>
+              <div className={`p-10 rounded-[3rem] border-2 relative overflow-hidden transition-all group ${state.isVip ? 'bg-gradient-to-br from-amber-500/5 via-slate-900/80 to-slate-900 border-amber-500/20' : 'bg-slate-950/40 border-slate-800/50'}`}>
                  <div className="flex items-center gap-5 mb-8">
                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl ${state.isVip ? 'bg-amber-500 text-slate-950 animate-pulse' : 'bg-slate-800 text-slate-600'}`}>
                        <i className={`fas ${state.isVip ? 'fa-bolt' : 'fa-lock'} text-xl`}></i>
@@ -165,8 +186,8 @@ const Home: React.FC = () => {
                  </div>
 
                  <div className={`space-y-6 relative transition-all duration-1000 ${state.isVip ? 'opacity-100' : 'blur-xl select-none grayscale'}`}>
-                    <p className="text-slate-200 text-2xl leading-[1.8] italic font-light pl-8 border-l-2 border-amber-500/30">
-                      "今日 16:24 后，火星的震颤将影响你的事业宫位。这并非挑衅，而是催促你做出决断的信号..."
+                    <p className="text-slate-200 text-xl md:text-2xl leading-[1.8] font-medium font-sans pl-8 border-l-4 border-amber-500/40">
+                      "今日 16:24 后，火星的震颤将影响你的事业宫位。这并非挑衅，而是催促你做出决断的信号。如果你正在策划某个方案，这是本月最佳的投射时机..."
                     </p>
                     <div className="flex flex-wrap gap-4 pt-4">
                        <span className="px-5 py-2 bg-amber-500/10 text-amber-500 rounded-xl text-[10px] font-black tracking-widest border border-amber-500/10">#火星共振</span>
@@ -191,56 +212,56 @@ const Home: React.FC = () => {
         {/* Right Column: Services & Relationship */}
         <div className="lg:col-span-4 space-y-10">
           
-          {/* 核心服务矩阵 - 显性展示星盘和合盘 */}
-          <section className="grid grid-cols-2 gap-4">
-             <Link to="/chart" className="bg-slate-900/60 border border-slate-800 p-6 rounded-[2.5rem] flex flex-col items-center gap-4 hover:border-amber-500/50 transition-all group shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-transparent"></div>
-                <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
-                    <i className="fas fa-star-and-crescent text-xl"></i>
+          {/* 核心服务矩阵 */}
+          <section className="grid grid-cols-2 gap-5">
+             <Link to="/chart" className="bg-slate-900/80 border border-slate-800 p-8 rounded-[2.5rem] flex flex-col items-center gap-6 hover:border-amber-500 transition-all group shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-indigo-400 to-transparent opacity-50"></div>
+                <div className="w-16 h-16 rounded-2xl bg-indigo-500/15 flex items-center justify-center text-indigo-400 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-inner">
+                    <i className="fas fa-star-and-crescent text-3xl"></i>
                 </div>
-                <div className="text-center">
-                    <span className="block text-sm font-bold text-slate-100">本命星盘</span>
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1 block">深度宿命解析</span>
-                </div>
-             </Link>
-
-             <Link to="/synastry" className="bg-slate-900/60 border border-slate-800 p-6 rounded-[2.5rem] flex flex-col items-center gap-4 hover:border-pink-500/50 transition-all group shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-500 to-transparent"></div>
-                <div className="w-12 h-12 rounded-xl bg-pink-500/10 flex items-center justify-center text-pink-400 group-hover:scale-110 transition-transform">
-                    <i className="fas fa-heart text-xl"></i>
-                </div>
-                <div className="text-center">
-                    <span className="block text-sm font-bold text-slate-100">合盘匹配</span>
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1 block">测算默契缘分</span>
+                <div className="text-center space-y-1">
+                    <span className="block text-base font-black text-slate-50 tracking-wide">本命星盘</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] opacity-80">深度宿命解析</span>
                 </div>
              </Link>
 
-             <Link to="/transit" className="bg-slate-900/60 border border-slate-800 p-6 rounded-[2.5rem] flex flex-col items-center gap-4 hover:border-emerald-500/50 transition-all group shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-transparent"></div>
-                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-                    <i className="fas fa-chart-line text-xl"></i>
+             <Link to="/synastry" className="bg-slate-900/80 border border-slate-800 p-8 rounded-[2.5rem] flex flex-col items-center gap-6 hover:border-pink-500 transition-all group shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-pink-500 via-rose-400 to-transparent opacity-50"></div>
+                <div className="w-16 h-16 rounded-2xl bg-pink-500/15 flex items-center justify-center text-pink-400 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-inner">
+                    <i className="fas fa-heart text-3xl"></i>
                 </div>
-                <div className="text-center">
-                    <span className="block text-sm font-bold text-slate-100">流年趋势</span>
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1 block">掌握未来先机</span>
+                <div className="text-center space-y-1">
+                    <span className="block text-base font-black text-slate-50 tracking-wide">合盘匹配</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] opacity-80">测算默契缘分</span>
                 </div>
              </Link>
 
-             <Link to="/ai" className="bg-indigo-600 border border-indigo-400 p-6 rounded-[2.5rem] flex flex-col items-center gap-4 hover:bg-indigo-500 transition-all group shadow-2xl shadow-indigo-900/30">
-                <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-white group-hover:rotate-12 transition-transform">
-                    <i className="fas fa-robot text-xl"></i>
+             <Link to="/transit" className="bg-slate-900/80 border border-slate-800 p-8 rounded-[2.5rem] flex flex-col items-center gap-6 hover:border-emerald-500 transition-all group shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-transparent opacity-50"></div>
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-inner">
+                    <i className="fas fa-chart-line text-3xl"></i>
                 </div>
-                <div className="text-center">
-                    <span className="block text-sm font-bold text-white">AI 咨询</span>
-                    <span className="text-[10px] text-indigo-100 font-bold uppercase tracking-widest mt-1 block">对话占星大师</span>
+                <div className="text-center space-y-1">
+                    <span className="block text-base font-black text-slate-50 tracking-wide">流年趋势</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] opacity-80">掌握未来先机</span>
+                </div>
+             </Link>
+
+             <Link to="/ai" className="bg-indigo-600 border border-indigo-400 p-8 rounded-[2.5rem] flex flex-col items-center gap-6 hover:bg-indigo-500 transition-all group shadow-2xl shadow-indigo-900/50 shadow-[0_4px_30px_rgba(79,70,229,0.4)] transform hover:-translate-y-1">
+                <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-white group-hover:rotate-[360deg] transition-all duration-700 shadow-lg">
+                    <i className="fas fa-robot text-3xl"></i>
+                </div>
+                <div className="text-center space-y-1">
+                    <span className="block text-base font-black text-white tracking-wide">AI 咨询</span>
+                    <span className="text-[10px] text-indigo-100 font-bold uppercase tracking-[0.2em] opacity-90">对话占星大师</span>
                 </div>
              </Link>
           </section>
 
-          {/* Relationship Stickiness: Friends Quick View */}
+          {/* Relationship Stickiness - Updated Empty State */}
           <div className="bg-slate-900/40 border border-slate-800 p-8 rounded-[3rem] space-y-8 shadow-xl">
             <div className="flex justify-between items-center px-2">
-               <h3 className="font-serif text-xl font-bold text-slate-100">亲友运势速览</h3>
+               <h3 className="font-serif text-xl font-bold text-slate-100">亲友运势关注</h3>
                <Link to="/profile" className="text-[10px] text-amber-500 uppercase tracking-widest font-black flex items-center gap-2">
                  管理 <i className="fas fa-plus"></i>
                </Link>
@@ -265,20 +286,34 @@ const Home: React.FC = () => {
                           <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">{p.sunSign}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                         <span className="block text-lg font-serif font-black text-emerald-400">{friendFortune.summary}分</span>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                           <span className="block text-lg font-serif font-black text-emerald-400">{friendFortune.summary}分</span>
+                        </div>
+                        <button 
+                          onClick={(e) => handleRemindFriend(e, p.nickname)}
+                          className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-slate-600 hover:text-amber-500 hover:bg-amber-500/10 transition-all border border-slate-800 shadow-lg"
+                        >
+                          <i className="fas fa-bell text-xs"></i>
+                        </button>
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <div className="py-10 text-center space-y-4">
-                   <p className="text-xs text-slate-600 font-medium">绑定亲友星座，同步关爱运势</p>
+                <div className="py-12 px-6 text-center space-y-6 bg-slate-950/40 rounded-[2.5rem] border border-dashed border-slate-800">
+                   <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto text-slate-700">
+                      <i className="fas fa-user-plus text-xl"></i>
+                   </div>
+                   <div className="space-y-2">
+                      <p className="text-xs text-slate-300 font-bold">同步家人与伴侣的星图</p>
+                      <p className="text-[10px] text-slate-600 font-medium leading-relaxed">添加 ♌ 狮子座老板、♎ 天秤座伴侣，<br/>实时掌握他们的今日气场。</p>
+                   </div>
                    <button 
                      onClick={() => navigate('/profile')}
-                     className="bg-amber-500/5 text-amber-500 border border-amber-500/20 px-8 py-2 rounded-full text-[10px] font-bold uppercase"
+                     className="bg-amber-500/5 text-amber-500 border border-amber-500/20 px-10 py-3 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-amber-500/10 transition-all"
                    >
-                     添加第一位亲友
+                     立即添加第一位
                    </button>
                 </div>
               )}
@@ -318,6 +353,16 @@ const Home: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes slide-down {
+          from { transform: translate(-50%, -20px); opacity: 0; }
+          to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        .animate-slide-down {
+          animation: slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
     </div>
   );
 };

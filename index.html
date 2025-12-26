@@ -7,6 +7,8 @@
     <title>幸运星 - 专业星座运势</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入 html2pdf.js 用于导出 PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Inter:wght@400;600&display=swap');
       body {
@@ -17,9 +19,16 @@
         padding: 0;
         -webkit-tap-highlight-color: transparent;
       }
-      .font-serif { font-family: 'Noto+Serif+SC', serif; }
+      .font-serif { font-family: 'Noto Serif SC', serif; }
       ::-webkit-scrollbar { width: 4px; }
       ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+      
+      /* PDF 打印专用样式优化 */
+      @media print {
+        .no-print { display: none !important; }
+        body { background: white !important; color: black !important; }
+        .pdf-page { padding: 20mm !important; background: white !important; }
+      }
     </style>
 <script type="importmap">
 {
