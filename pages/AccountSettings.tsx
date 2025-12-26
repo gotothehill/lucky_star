@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storageService } from '../services/storage';
 import { calculateSigns } from '../services/astrology';
-import { MOCK_CITIES } from '../constants';
 import { BirthInfo } from '../types';
+import CityAutocomplete from '../components/CityAutocomplete';
+import { searchCities } from '../services/citySearch';
 
 const AVATARS = ['⭐', '🌙', '☀️', '🌌', '☁️', '🌍', '🔮', '🤖', '🔐', '✅', '🦊', '🦁'];
 
@@ -15,9 +16,9 @@ const AccountSettings: React.FC = () => {
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
   const [birthDate, setBirthDate] = useState('1990-01-01');
   const [birthTime, setBirthTime] = useState('12:00');
-  const [locationName, setLocationName] = useState(MOCK_CITIES[0].name);
-  const [latitude, setLatitude] = useState(MOCK_CITIES[0].lat);
-  const [longitude, setLongitude] = useState(MOCK_CITIES[0].lng);
+  const [locationName, setLocationName] = useState('北京');
+  const [latitude, setLatitude] = useState(39.9042);
+  const [longitude, setLongitude] = useState(116.4074);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
 
@@ -29,31 +30,32 @@ const AccountSettings: React.FC = () => {
       setBirthDate(user.birthInfo.birthDate);
       setBirthTime(user.birthInfo.birthTime);
       setLocationName(user.birthInfo.birthLocation);
-      setLatitude(user.birthInfo.latitude ?? MOCK_CITIES[0].lat);
-      setLongitude(user.birthInfo.longitude ?? MOCK_CITIES[0].lng);
+      setLatitude(user.birthInfo.latitude ?? 39.9042);
+      setLongitude(user.birthInfo.longitude ?? 116.4074);
     }
   }, [data.currentUser?.id]);
 
-  const handleLocationSelect = (value: string) => {
-    setLocationName(value);
-    const city = MOCK_CITIES.find(c => c.name === value);
-    if (city) {
-      setLatitude(city.lat);
-      setLongitude(city.lng);
-    }
-  };
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!data.currentUser || !nickname.trim()) return;
     setSaving(true);
-    const city = MOCK_CITIES.find(c => c.name === locationName);
+    let finalLat = latitude;
+    let finalLng = longitude;
+    if ((!finalLat && !finalLng) || !Number.isFinite(finalLat) || !Number.isFinite(finalLng)) {
+      const [matched] = await searchCities(locationName, 1);
+      if (matched) {
+        finalLat = matched.latitude;
+        finalLng = matched.longitude;
+        setLatitude(finalLat);
+        setLongitude(finalLng);
+      }
+    }
 
     const birthInfo: BirthInfo = {
       birthDate: birthDate,
       birthTime: birthTime,
       birthLocation: locationName,
-      latitude: city?.lat ?? latitude,
-      longitude: city?.lng ?? longitude,
+      latitude: finalLat,
+      longitude: finalLng,
     };
 
     const { sunSign, moonSign, ascSign } = calculateSigns(birthInfo);
@@ -178,24 +180,22 @@ const AccountSettings: React.FC = () => {
               <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-xs uppercase tracking-[0.2em] text-slate-500 font-bold">出生地点</label>
-                  <div className="flex gap-3">
-                    <select
-                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 outline-none focus:border-amber-500 text-white transition-all cursor-pointer"
-                      value={locationName}
-                      onChange={e => handleLocationSelect(e.target.value)}
-                    >
-                      {MOCK_CITIES.map(c => (
-                        <option key={c.name} value={c.name}>{c.name}</option>
-                      ))}
-                      <option value={locationName}>自定义: {locationName}</option>
-                    </select>
-                    <input
-                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 outline-none focus:border-amber-500 text-white transition-all"
-                      value={locationName}
-                      onChange={e => setLocationName(e.target.value)}
-                      placeholder="自定义地点"
-                    />
-                  </div>
+                  <CityAutocomplete
+                    value={locationName}
+                    onInputChange={(val) => {
+                      setLocationName(val);
+                      setLatitude(0);
+                      setLongitude(0);
+                    }}
+                    onSelect={city => {
+                      setLocationName(city.name);
+                      setLatitude(city.latitude);
+                      setLongitude(city.longitude);
+                    }}
+                    placeholder="输入城市名称（支持中文优先、拼音自动匹配）"
+                    inputClassName="bg-slate-950 border border-slate-800 rounded-xl p-4 outline-none focus:border-amber-500 text-white transition-all"
+                  />
+                  <p className="text-[11px] text-slate-600">优先匹配中文，未命中会自动用拼音搜索，选中后经纬度自动带入。</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs uppercase tracking-[0.2em] text-slate-500 font-bold">坐标(选填)</label>

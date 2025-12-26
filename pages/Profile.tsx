@@ -3,8 +3,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storageService } from '../services/storage';
 import { calculateSigns } from '../services/astrology';
-import { MOCK_CITIES } from '../constants';
 import { BirthInfo, Gender } from '../types';
+import CityAutocomplete from '../components/CityAutocomplete';
+import { searchCities } from '../services/citySearch';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
@@ -16,7 +17,9 @@ const Profile: React.FC = () => {
   const [newGender, setNewGender] = useState<Gender>(Gender.OTHER);
   const [newBirthDate, setNewBirthDate] = useState('2000-01-01');
   const [newBirthTime, setNewBirthTime] = useState('12:00');
-  const [newCity, setNewCity] = useState(MOCK_CITIES[0]);
+  const [newCityName, setNewCityName] = useState('北京');
+  const [newLatitude, setNewLatitude] = useState(39.9042);
+  const [newLongitude, setNewLongitude] = useState(116.4074);
 
   const toggleVip = () => {
     const newState = storageService.updateVipStatus(!data.isVip);
@@ -28,14 +31,25 @@ const Profile: React.FC = () => {
     setData(newState);
   };
 
-  const handleAddProfile = () => {
+  const handleAddProfile = async () => {
     if (!newNickname.trim()) return;
+    let finalLat = newLatitude;
+    let finalLng = newLongitude;
+    if ((!finalLat && !finalLng) || !Number.isFinite(finalLat) || !Number.isFinite(finalLng)) {
+      const [matched] = await searchCities(newCityName, 1);
+      if (matched) {
+        finalLat = matched.latitude;
+        finalLng = matched.longitude;
+        setNewLatitude(finalLat);
+        setNewLongitude(finalLng);
+      }
+    }
     const birthInfo: BirthInfo = {
       birthDate: newBirthDate,
       birthTime: newBirthTime,
-      birthLocation: newCity.name,
-      latitude: newCity.lat,
-      longitude: newCity.lng,
+      birthLocation: newCityName,
+      latitude: finalLat,
+      longitude: finalLng,
     };
     const { sunSign, moonSign, ascSign } = calculateSigns(birthInfo);
     const newProfile = {
@@ -268,13 +282,22 @@ const Profile: React.FC = () => {
 
               <div className="space-y-3">
                 <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">出生星区 (地点)</label>
-                <select 
-                   className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-5 outline-none focus:border-amber-500/50 text-white cursor-pointer shadow-inner appearance-none"
-                   value={newCity.name}
-                   onChange={e => setNewCity(MOCK_CITIES.find(c => c.name === e.target.value) || MOCK_CITIES[0])}
-                >
-                  {MOCK_CITIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                </select>
+                <CityAutocomplete
+                  value={newCityName}
+                  onSelect={city => {
+                    setNewCityName(city.name);
+                    setNewLatitude(city.latitude);
+                    setNewLongitude(city.longitude);
+                  }}
+                  onInputChange={(val) => {
+                    setNewCityName(val);
+                    setNewLatitude(0);
+                    setNewLongitude(0);
+                  }}
+                  placeholder="输入城市名称（支持中文/拼音）"
+                  inputClassName="bg-slate-950 border-2 border-slate-800 rounded-2xl p-5 outline-none focus:border-amber-500/50 text-white shadow-inner"
+                />
+                <p className="text-[11px] text-slate-600">优先中文匹配，未命中会自动用拼音搜索，选中后经纬度自动带入。</p>
               </div>
 
               <button 

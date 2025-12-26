@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { storageService } from '../services/storage';
 import { calculateSigns } from '../services/astrology';
 import { Gender, BirthInfo } from '../types';
-import { MOCK_CITIES } from '../constants';
+import CityAutocomplete from '../components/CityAutocomplete';
+import { searchCities } from '../services/citySearch';
 
 const Onboarding: React.FC = () => {
   const navigate = useNavigate();
@@ -13,16 +14,29 @@ const Onboarding: React.FC = () => {
   const [gender, setGender] = useState<Gender>(Gender.OTHER);
   const [birthDate, setBirthDate] = useState('1995-01-01');
   const [birthTime, setBirthTime] = useState('12:00');
-  const [city, setCity] = useState(MOCK_CITIES[0]);
+  const [cityName, setCityName] = useState('北京');
+  const [latitude, setLatitude] = useState(39.9042);
+  const [longitude, setLongitude] = useState(116.4074);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!nickname.trim()) return;
+    let finalLat = latitude;
+    let finalLng = longitude;
+    if ((!finalLat && !finalLng) || !Number.isFinite(finalLat) || !Number.isFinite(finalLng)) {
+      const [matched] = await searchCities(cityName, 1);
+      if (matched) {
+        finalLat = matched.latitude;
+        finalLng = matched.longitude;
+        setLatitude(finalLat);
+        setLongitude(finalLng);
+      }
+    }
     const birthInfo: BirthInfo = {
       birthDate,
       birthTime,
-      birthLocation: city.name,
-      latitude: city.lat,
-      longitude: city.lng,
+      birthLocation: cityName,
+      latitude: finalLat,
+      longitude: finalLng,
     };
 
     const { sunSign, moonSign, ascSign } = calculateSigns(birthInfo);
@@ -167,16 +181,24 @@ const Onboarding: React.FC = () => {
                 
                 <div className="space-y-3">
                   <label className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold">出生地点</label>
-                  <div className="relative">
-                    <select 
-                       className="w-full bg-slate-950/50 border-2 border-slate-800 rounded-2xl p-5 focus:border-amber-500/50 outline-none text-white appearance-none cursor-pointer shadow-inner pr-12"
-                       value={city.name}
-                       onChange={e => setCity(MOCK_CITIES.find(c => c.name === e.target.value) || MOCK_CITIES[0])}
-                    >
-                      {MOCK_CITIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                    </select>
-                    <i className="fas fa-chevron-down absolute right-5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none"></i>
-                  </div>
+                  <CityAutocomplete
+                    value={cityName}
+                    onSelect={city => {
+                      setCityName(city.name);
+                      setLatitude(city.latitude);
+                      setLongitude(city.longitude);
+                    }}
+                    onInputChange={(val) => {
+                      setCityName(val);
+                      setLatitude(0);
+                      setLongitude(0);
+                    }}
+                    placeholder="输入城市名称（优先中文，自动支持拼音）"
+                    inputClassName="bg-slate-950/50 border-2 border-slate-800 rounded-2xl p-5 focus:border-amber-500/50 text-white shadow-inner"
+                  />
+                  <p className="text-[11px] text-slate-600">
+                    未命中中文时会自动用拼音匹配，选中后自动填入经纬度。
+                  </p>
                 </div>
                 
                 <div className="flex flex-col md:flex-row gap-4 pt-4">
